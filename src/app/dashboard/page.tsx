@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useTranslation } from "@/lib/i18n/I18nContext";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { MetricsForm } from "@/components/forms/MetricsForm";
@@ -26,6 +26,7 @@ export default function DashboardPage() {
 
   const [hasCalculated, setHasCalculated] = useState(false);
   const [isEstimating, setIsEstimating] = useState(false);
+  const resultsRef = useRef<HTMLElement>(null);
 
   const projections = useMemo(() => calculateInfrastructure(metrics), [metrics]);
 
@@ -60,7 +61,12 @@ export default function DashboardPage() {
 
           <div className="mt-8 pt-4 mt-auto">
             <button
-              onClick={() => setHasCalculated(true)}
+              onClick={() => {
+                setHasCalculated(true);
+                setTimeout(() => {
+                  resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+              }}
               className="w-full bg-primary text-primary-foreground font-bold py-3 uppercase tracking-widest border-2 border-primary hover:bg-transparent hover:text-primary transition-colors focus:ring-0 focus:outline-none"
             >
               [ {t('calculateButton', { defaultValue: 'Calculate Projections' })} ]
@@ -69,7 +75,7 @@ export default function DashboardPage() {
         </section>
 
         {/* Right Side: Outputs */}
-        <section className={`bg-black border-2 border-primary p-6 flex flex-col space-y-6 transition-all duration-500 uppercase before:content-[''] before:absolute before:top-0 before:right-0 before:w-4 before:h-4 before:border-t-4 before:border-r-4 before:border-primary after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-4 after:h-4 after:border-b-4 after:border-l-4 after:border-primary ${hasCalculated ? 'opacity-100 translate-y-0 relative' : 'opacity-0 translate-y-4 pointer-events-none absolute'}`}>
+        <section ref={resultsRef} className={`bg-black border-2 border-primary p-6 flex flex-col space-y-6 transition-all duration-500 uppercase before:content-[''] before:absolute before:top-0 before:right-0 before:w-4 before:h-4 before:border-t-4 before:border-r-4 before:border-primary after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-4 after:h-4 after:border-b-4 after:border-l-4 after:border-primary ${hasCalculated ? 'opacity-100 translate-y-0 relative mt-8' : 'opacity-0 translate-y-4 pointer-events-none absolute'}`}>
           {hasCalculated && (
             <>
               {isEstimating && (
