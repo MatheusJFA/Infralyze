@@ -34,7 +34,7 @@ export function CostEstimation({ projections, onLoadingChange, hideLoader = fals
       onLoadingChange?.(true);
       try {
         const CACHE_KEY = "Infralyzer_cloud_pricing_cache";
-        const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+        const CACHE_DURATION_MS = 3 * 60 * 60 * 1000; // 3 hours
 
         const cached = localStorage.getItem(CACHE_KEY);
         if (cached) {

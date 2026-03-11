@@ -13,14 +13,19 @@ export async function GET(request: Request) {
     let pricePerGB = 0;
     
     if (service === "storage") {
-      // Procurando pelo 'Object Storage - Storage' que normalmente é a métrica principal no JSON deles
-      const storageProduct = data.items?.find((p: any) => p.description && p.description.includes("Object Storage - Storage"));
-      // Tentar pegar do first price model list, ou fallback matemático 0.0255
-      pricePerGB = storageProduct?.currencyCodeLocalizations?.[0]?.prices?.[0]?.value || 0.0255;
+      // Procurando pelo 'Object Storage' - O nome oficial varia, mas geralmente contém 'Object Storage' e 'Storage Capacity'
+      const storageProduct = data.items?.find((p: any) => 
+        (p.displayName && p.displayName.includes("Object Storage")) || 
+        (p.metricName && p.metricName.includes("Storage Capacity"))
+      );
+      pricePerGB = storageProduct?.currencyCodeLocalizations?.find((c: any) => c.currencyCode === "USD")?.prices?.[0]?.value || 0.0255;
     } else if (service === "egress") {
       // Outbound Data Transfer
-      const egressProduct = data.items?.find((p: any) => p.description && p.description.includes("Outbound Data Transfer"));
-      pricePerGB = egressProduct?.currencyCodeLocalizations?.[0]?.prices?.[0]?.value || 0.0085;
+      const egressProduct = data.items?.find((p: any) => 
+        (p.displayName && p.displayName.includes("Outbound Data Transfer")) ||
+        (p.description && p.description.includes("Outbound Data Transfer"))
+      );
+      pricePerGB = egressProduct?.currencyCodeLocalizations?.find((c: any) => c.currencyCode === "USD")?.prices?.[0]?.value || 0.0085;
     }
 
     return NextResponse.json({
