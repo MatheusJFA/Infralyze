@@ -30,27 +30,38 @@ export function CostEstimation({ projections, onLoadingChange, hideLoader = fals
 
   useEffect(() => {
     async function fetchPricing() {
+      const CACHE_KEY = "Infralyzer_local_pricing_fallback";
+      const CACHE_DURATION_MS = 3 * 60 * 60 * 1000; // 3 hours
+
       setIsLoading(true);
       onLoadingChange?.(true);
-      try {
-        const CACHE_KEY = "Infralyzer_cloud_pricing_cache";
-        const CACHE_DURATION_MS = 3 * 60 * 60 * 1000; // 3 hours
 
-        const cached = localStorage.getItem(CACHE_KEY);
-        if (cached) {
-          const parsed = JSON.parse(cached);
+      // 1. Tentar ler do LocalStorage primeiro (Fallback de velocidade/indisponibilidade)
+      const localCached = localStorage.getItem(CACHE_KEY);
+      if (localCached) {
+        try {
+          const parsed = JSON.parse(localCached);
           if (parsed.timestamp && (Date.now() - parsed.timestamp < CACHE_DURATION_MS)) {
-            setAwsPricing({ ...parsed.aws, isMocked: parsed.aws.isMocked ?? true });
-            setAzurePricing({ ...parsed.azure, isMocked: parsed.azure.isMocked ?? true });
-            setGcpPricing({ ...parsed.gcp, isMocked: parsed.gcp.isMocked ?? true });
-            setOraclePricing({ ...parsed.oracle, isMocked: parsed.oracle.isMocked ?? true });
-            if (parsed.exchangeRate) setExchangeRate(parsed.exchangeRate);
-            setCacheTime(new Date(parsed.timestamp).toLocaleString());
-            setIsLoading(false);
-            onLoadingChange?.(false);
-            return;
+            setAwsPricing(parsed.aws);
+            setAzurePricing(parsed.azure);
+            setGcpPricing(parsed.gcp);
+            setOraclePricing(parsed.oracle);
+            setExchangeRate(parsed.exchangeRate || 5.0);
+            setCacheTime(new Date(parsed.timestamp).toLocaleTimeString() + " (LOCAL)");
+            
+            // Se o cache for bem recente (ex: < 5 min), podemos pular o fetch
+            if (Date.now() - parsed.timestamp < 5 * 60 * 1000) {
+              setIsLoading(false);
+              onLoadingChange?.(false);
+              return;
+            }
           }
+        } catch (e) {
+          console.error("Local cache corrupt", e);
         }
+      }
+
+      try {
         const responses = await Promise.allSettled([
           fetch("/api/aws?service=storage").then(res => res.json()),
           fetch("/api/aws?service=egress").then(res => res.json()),
@@ -77,7 +88,7 @@ export function CostEstimation({ projections, onLoadingChange, hideLoader = fals
 
         const isMocked = (res1: any, res2: any) => {
           if (!res1 || !res2) return true;
-          return res1.status !== "live" || res2.status !== "live";
+          return res1.status === "mock" || res2.status === "mock";
         };
 
         const newAws = {
@@ -101,16 +112,15 @@ export function CostEstimation({ projections, onLoadingChange, hideLoader = fals
           isMocked: isMocked(oracleStorageRes, oracleEgressRes),
         };
 
+        const newExchangeRate = exchangeRes?.rates?.BRL || 5.0;
+
         setAwsPricing(newAws);
         setAzurePricing(newAzure);
         setGcpPricing(newGcp);
         setOraclePricing(newOracle);
-
-        const newExchangeRate = exchangeRes?.rates?.BRL || 5.0;
         setExchangeRate(newExchangeRate);
 
-        const isGlobalLive = !newAws.isMocked && !newAzure.isMocked && !newGcp.isMocked && !newOracle.isMocked;
-
+        // 2. Salvar no LocalStorage para a próxima visita ou fallback
         const now = Date.now();
         localStorage.setItem(CACHE_KEY, JSON.stringify({
           aws: newAws,
@@ -118,10 +128,12 @@ export function CostEstimation({ projections, onLoadingChange, hideLoader = fals
           gcp: newGcp,
           oracle: newOracle,
           exchangeRate: newExchangeRate,
-          timestamp: now,
-          status: isGlobalLive ? 'live' : 'mock'
+          timestamp: now
         }));
-        setCacheTime(new Date(now).toLocaleString());
+
+        const isRedisCached = [awsStorageRes, azureStorageRes, gcpStorageRes, oracleStorageRes].some(r => r?.status === "cached");
+        setCacheTime(new Date(now).toLocaleTimeString() + (isRedisCached ? " (REDIS)" : " (LIVE)"));
+
       } catch (error) {
         console.error("Failed to fetch cloud pricing", error);
       } finally {

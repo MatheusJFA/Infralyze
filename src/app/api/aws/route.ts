@@ -1,16 +1,23 @@
 import { NextResponse } from "next/server";
+import { redis } from "@/lib/redis";
+
+const CACHE_TTL = 60 * 60 * 3; // 3 horas
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const service = searchParams.get("service") || "storage";
+  const cacheKey = `pricing:aws:${service}`;
 
   try {
-    // AWS Price List API for S3 in US East (N. Virginia)
-    // Usando a URL direta regional que é menor (~400KB) que o bulk index
-    const res = await fetch('https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/us-east-1/index.json', { cache: 'no-store' });
-    
-    if (!res.ok) throw new Error("AWS Pricing API unreachable");
-    
+    // 1. Tentar buscar do Cache (Redis)
+    const cachedData = await redis.get(cacheKey);
+    if (cachedData) {
+      return NextResponse.json({
+        ...JSON.parse(cachedData),
+        status: "cached"
+      });
+    }
+
     let pricePerGB = 0;
     let isMock = false;
 
@@ -19,7 +26,6 @@ export async function GET(request: Request) {
       if (!res.ok) throw new Error("AWS Storage API unreachable");
       const data = await res.json();
 
-      // S3 Standard usage type is TimedStorage-ByteHrs
       const s3Standard = Object.values(data.products || {}).find((p: any) => 
         p.attributes?.usagetype === 'TimedStorage-ByteHrs' && 
         p.attributes?.location === 'US East (N. Virginia)'
@@ -37,13 +43,10 @@ export async function GET(request: Request) {
         isMock = true;
       }
     } else if (service === "egress") {
-      // Egress para Internet (Data Transfer Out)
-      // Usando o index de Data Transfer que é onde fica o egress real
       const res = await fetch('https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSDataTransfer/current/us-east-1/index.json', { cache: 'no-store' });
       if (!res.ok) throw new Error("AWS Egress API unreachable");
       const data = await res.json();
 
-      // Procura por Data Transfer Out para External
       const egressProd = Object.values(data.products || {}).find((p: any) => 
         p.attributes?.transferType === 'AWS Outbound' && 
         p.attributes?.fromLocation === 'US East (N. Virginia)'
@@ -62,12 +65,19 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json({
+    const responseData = {
       provider: "AWS",
       service,
       pricePerGB,
       status: isMock ? "mock" : "live",
-    });
+    };
+
+    // 2. Salvar no Cache
+    if (!isMock) {
+      await redis.set(cacheKey, JSON.stringify(responseData), "EX", CACHE_TTL);
+    }
+
+    return NextResponse.json(responseData);
 
   } catch (error) {
     console.error(`AWS ${service} error:`, error);

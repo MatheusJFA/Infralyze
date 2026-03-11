@@ -1,18 +1,27 @@
 import { NextResponse } from "next/server";
+import { redis } from "@/lib/redis";
+
+const CACHE_TTL = 60 * 60 * 3; // 3 horas
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const service = searchParams.get("service") || "storage";
+  const cacheKey = `pricing:azure:${service}`;
 
   try {
+    const cachedData = await redis.get(cacheKey);
+    if (cachedData) {
+      return NextResponse.json({
+        ...JSON.parse(cachedData),
+        status: "cached"
+      });
+    }
+
     let priceQuery = "";
     
-    // Filtros de OData para a API Retail Oficial da Azure (US East)
     if (service === "storage") {
-      // General Block Blob, Hot Tier, LRS em East US
       priceQuery = "serviceName eq 'Storage' and meterName eq 'Hot LRS Data Stored' and armRegionName eq 'eastus'";
     } else if (service === "egress") {
-      // Bandwidth saindo de East US para a Internet
       priceQuery = "serviceName eq 'Bandwidth' and meterName eq 'Standard Data Transfer Out' and armRegionName eq 'eastus'";
     }
 
@@ -20,19 +29,24 @@ export async function GET(request: Request) {
     if (!res.ok) throw new Error("Azure API failed");
     const data = await res.json();
     
-    // Captura primeiro item do retorno da Microsoft com preço (evitando tier 0-5GB free se existir no index)
     const items = data.Items || [];
     const firstItem = items.find((i: any) => i.retailPrice > 0) || items[0];
     const isMock = !firstItem || (firstItem.retailPrice === 0 && service === "egress"); 
     const pricePerGB = firstItem ? firstItem.retailPrice : (service === "storage" ? 0.0184 : 0.087);
 
-    return NextResponse.json({
+    const responseData = {
       provider: "Azure",
       service,
       pricePerGB,
       status: isMock ? "mock" : "live",
       sku: firstItem?.skuName,
-    });
+    };
+
+    if (!isMock) {
+      await redis.set(cacheKey, JSON.stringify(responseData), "EX", CACHE_TTL);
+    }
+
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error(`Azure ${service} error:`, error);
     return NextResponse.json({
