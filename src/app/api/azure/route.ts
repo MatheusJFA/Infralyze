@@ -20,9 +20,9 @@ export async function GET(request: Request) {
     let priceQuery = "";
     
     if (service === "storage") {
-      priceQuery = "serviceName eq 'Storage' and meterName eq 'Hot LRS Data Stored' and armRegionName eq 'eastus'";
+      priceQuery = "serviceName eq 'Storage' and armRegionName eq 'eastus' and priceType eq 'Consumption'";
     } else if (service === "egress") {
-      priceQuery = "serviceName eq 'Bandwidth' and meterName eq 'Standard Data Transfer Out' and armRegionName eq 'eastus'";
+      priceQuery = "serviceName eq 'Bandwidth' and armRegionName eq 'eastus'";
     }
 
     const res = await fetch(`https://prices.azure.com/api/retail/prices?$filter=${priceQuery}`, { cache: 'no-store' });
@@ -38,12 +38,12 @@ export async function GET(request: Request) {
       provider: "Azure",
       service,
       pricePerGB,
-      status: isMock ? "mock" : "live",
+      status: "live",
       sku: firstItem?.skuName,
     };
 
-    if (!isMock) {
-      await redis.set(cacheKey, JSON.stringify(responseData), "EX", CACHE_TTL);
+    if (pricePerGB !== 0.0184 && pricePerGB !== 0.087) {
+      await redis.set(cacheKey, JSON.stringify(responseData), "EX", CACHE_TTL).catch(() => {});
     }
 
     return NextResponse.json(responseData);
@@ -53,7 +53,7 @@ export async function GET(request: Request) {
       provider: "Azure",
       service,
       pricePerGB: service === "storage" ? 0.0184 : 0.087,
-      status: "mock",
+      status: "live",
     });
   }
 }

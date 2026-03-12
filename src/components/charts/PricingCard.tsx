@@ -65,34 +65,39 @@ export function PricingCard({
   const theme = themeConfigs[themeColor];
 
   return (
-    <div className={`p-4 bg-black border-2 ${theme.border} relative group uppercase`}>
-      <div className={`absolute top-0 right-0 p-3 ${theme.textDim} font-bold text-4xl group-hover:${theme.textMuted.replace('/70', '/40')} transition-colors pointer-events-none`}>
-        {providerCode}
-      </div>
-      <p className={`text-sm ${theme.textMuted} font-bold tracking-widest mb-1`}>{providerTitle}</p>
-      <div className="mb-4">
-        <p className={`text-3xl font-black ${theme.text}`}>
-          ${totalUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          <span className={`text-sm font-bold ${theme.textMuted} tracking-widest`}> {t('mo')}</span>
-        </p>
-        <div className="flex items-center gap-2">
-          <p className={`text-lg font-bold ${theme.textSoft}`}>
-            ~ R$ {totalBrl.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-          <span className={`text-[10px] px-1 border font-black ${isMocked ? `${theme.borderMuted} ${theme.textMuted}` : `${theme.border} ${theme.text}`}`}>
-            {isMocked ? t('mocked') : t('live')}
-          </span>
+    <div className="p-4 bg-black border border-primary/50 hover:border-primary transition-all duration-300 relative group uppercase">
+      <div className="flex justify-between items-start mb-4">
+        <p className="text-xs text-primary/70 font-bold tracking-widest">{providerTitle}</p>
+        <div className={`px-2 py-0.5 border ${theme.border} ${theme.text} text-[10px] font-black bg-black`}>
+          {providerCode.replace('[', '').replace(']', '')}
         </div>
       </div>
 
-      <div className={`space-y-1 text-sm border-t-2 ${theme.border} border-dashed pt-3`}>
-        <div className={`flex justify-between ${theme.textStrong}`}>
-          <span className="tracking-widest">{t('storageCost')}</span>
-          <span className="font-bold">${storageCostUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+      <div className="relative z-10">
+        <div className="mb-4">
+          <p className="text-2xl font-black text-primary tracking-tighter">
+            ${totalUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <span className="text-xs font-bold text-primary/70 tracking-widest ml-1">{t('mo')}</span>
+          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-sm font-bold text-primary/80">
+              ~ R$ {totalBrl.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+            <span className={`text-[9px] px-1 border font-black ${isMocked ? 'border-primary/30 text-primary/50' : 'border-primary text-primary'}`}>
+              {isMocked ? t('mocked') : t('live')}
+            </span>
+          </div>
         </div>
-        <div className={`flex justify-between ${theme.textStrong}`}>
-          <span className="tracking-widest">{t('dataEgress')}</span>
-          <span className="font-bold">${egressCostUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+
+        <div className="space-y-1.5 text-xs border-t border-dashed border-primary/30 pt-3 group-hover:border-primary/50 transition-colors">
+          <div className="flex justify-between text-primary/80">
+            <span className="tracking-widest opacity-80">{t('storageCost')}</span>
+            <span className="font-bold text-primary">${storageCostUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </div>
+          <div className="flex justify-between text-primary/80">
+            <span className="tracking-widest opacity-80">{t('dataEgress')}</span>
+            <span className="font-bold text-primary">${egressCostUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </div>
         </div>
       </div>
     </div>

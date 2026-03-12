@@ -41,7 +41,10 @@ export function CostEstimation({ projections, onLoadingChange, hideLoader = fals
       if (localCached) {
         try {
           const parsed = JSON.parse(localCached);
-          if (parsed.timestamp && (Date.now() - parsed.timestamp < CACHE_DURATION_MS)) {
+          // Ignora cache se tiver dados mockados (força refresh para ver os novos dados live)
+          const hasMocks = parsed.aws?.isMocked || parsed.azure?.isMocked || parsed.gcp?.isMocked || parsed.oracle?.isMocked;
+          
+          if (!hasMocks && parsed.timestamp && (Date.now() - parsed.timestamp < CACHE_DURATION_MS)) {
             setAwsPricing(parsed.aws);
             setAzurePricing(parsed.azure);
             setGcpPricing(parsed.gcp);
@@ -173,10 +176,10 @@ export function CostEstimation({ projections, onLoadingChange, hideLoader = fals
         )
       ) : (
         <>
-          <TuiBanner>
+          <TuiBanner className="mt-0">
             {t('sysInfoPricing', { rate: exchangeRate.toFixed(2) })}
           </TuiBanner>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <PricingCard
               providerCode="[AWS]"
               providerTitle={t('awsDetails')}

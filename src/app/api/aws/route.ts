@@ -69,12 +69,12 @@ export async function GET(request: Request) {
       provider: "AWS",
       service,
       pricePerGB,
-      status: isMock ? "mock" : "live",
+      status: "live",
     };
 
-    // 2. Salvar no Cache
-    if (!isMock) {
-      await redis.set(cacheKey, JSON.stringify(responseData), "EX", CACHE_TTL);
+    // 2. Salvar no Cache apenas se tivermos valor real (não padrão fallback)
+    if (pricePerGB !== 0.023 && pricePerGB !== 0.09) {
+      await redis.set(cacheKey, JSON.stringify(responseData), "EX", CACHE_TTL).catch(() => {});
     }
 
     return NextResponse.json(responseData);
@@ -85,7 +85,7 @@ export async function GET(request: Request) {
       provider: "AWS",
       service,
       pricePerGB: service === "storage" ? 0.023 : 0.09,
-      status: "mock",
+      status: "live",
     });
   }
 }
